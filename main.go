@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
 	// for registering postgres as a driver for the sql connection
 	_ "github.com/lib/pq"
 )
@@ -21,9 +22,29 @@ import (
 // id, userid, content
 
 func main() {
-	connStr := "user=liam dbname=pastepouch sslmode=disable"
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env")
+	}
 
-	db, err := sql.Open("postgres", connStr)
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASS")
+
+	connectionType := -1
+	for connectionType != 0 && connectionType != 1 {
+		fmt.Print("Choose: \n(0) Local PostgreSQL\n(1) Supabase PostgreSQL\n")
+		fmt.Scan(&connectionType)
+		connectionType = int(connectionType)
+	}
+
+	var connectionString string
+	if connectionType == 0 {
+		connectionString = "user=liam dbname=pastepouch sslmode=disable"
+	} else {
+		connectionString = fmt.Sprintf("user=%s password=%s host=aws-0-us-east-1.pooler.supabase.com port=6543 dbname=postgres", dbUser, dbPass)
+	}
+
+	db, err := sql.Open("postgres", connectionString)
 	checkErr(err)
 	defer db.Close()
 

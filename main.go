@@ -25,7 +25,10 @@ import (
 // pastes
 // id, userid, content
 
+// allows user to interact with local or Supabase PostgreSQL db,
+// either by command line or by localhost:8080 gin routes
 func main() {
+	// .env currently holds private database connection info for Supabase
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Error loading .env")
@@ -76,6 +79,7 @@ func main() {
 			content TEXT NOT NULL
 		)
 	`)
+
 	checkErr(err)
 	fmt.Println("pastes table OK")
 	fmt.Println("")
@@ -209,12 +213,14 @@ func main() {
 
 }
 
+// generic error handler for when program shouldn't continue
 func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+// allows getting the db singleton from the Gin context
 func dbMiddleware(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("db", db)
@@ -222,6 +228,7 @@ func dbMiddleware(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// sets the funcName variable to the Gin context for handling in ginExecuteSQL
 func funcNameMiddleware(funcName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("funcName", funcName)
@@ -229,6 +236,8 @@ func funcNameMiddleware(funcName string) gin.HandlerFunc {
 	}
 }
 
+// grabs the db singleton and funcName to execute according function
+// and send back a nicely formatted JSON object
 func ginExecuteSQL(c *gin.Context) {
 	db, exists := c.Get("db")
 	if !exists {
@@ -333,6 +342,7 @@ func ginExecuteSQL(c *gin.Context) {
 	}
 }
 
+// creates a user with the given name and email in pSQL
 func createUser(db *sql.DB, name string, email string) (sql.Result, error) {
 	res, err := db.Exec(
 		`INSERT INTO users (name, email)
@@ -341,6 +351,7 @@ func createUser(db *sql.DB, name string, email string) (sql.Result, error) {
 	return res, err
 }
 
+// creates a paste with the given userid and content in pSQL
 func createPaste(db *sql.DB, userid int, content string) (sql.Result, error) {
 	res, err := db.Exec(
 		`INSERT INTO pastes (userid, content)
@@ -349,6 +360,7 @@ func createPaste(db *sql.DB, userid int, content string) (sql.Result, error) {
 	return res, err
 }
 
+// selects all users from pSQL
 func selectUsers(db *sql.DB) (*sql.Rows, error) {
 	rows, err := db.Query(`
 		SELECT * FROM users
@@ -357,6 +369,7 @@ func selectUsers(db *sql.DB) (*sql.Rows, error) {
 	return rows, err
 }
 
+// selects all users from pSQL
 func selectPastes(db *sql.DB) (*sql.Rows, error) {
 	rows, err := db.Query(`
 		SELECT * FROM pastes
@@ -365,6 +378,7 @@ func selectPastes(db *sql.DB) (*sql.Rows, error) {
 	return rows, err
 }
 
+// returns the rows associated with a pasteid in pSQL
 func readPaste(db *sql.DB, pasteid int) (*sql.Rows, error) {
 	rows, err := db.Query(`
 		SELECT * FROM pastes
@@ -374,6 +388,7 @@ func readPaste(db *sql.DB, pasteid int) (*sql.Rows, error) {
 	return rows, err
 }
 
+// deletes a paste with the corresponding pasteid in pSQL
 func deletePaste(db *sql.DB, pasteid int) (*sql.Rows, error) {
 	rows, err := db.Query(`
 		DELETE FROM pastes
@@ -383,6 +398,7 @@ func deletePaste(db *sql.DB, pasteid int) (*sql.Rows, error) {
 	return rows, err
 }
 
+// updates a paste with the corresponding pasteid with the newContent, in pSQL
 func updatePaste(db *sql.DB, pasteid int, newContent string) (*sql.Rows, error) {
 	rows, err := db.Query(`
 		UPDATE pastes
@@ -393,6 +409,7 @@ func updatePaste(db *sql.DB, pasteid int, newContent string) (*sql.Rows, error) 
 	return rows, err
 }
 
+// converts a *sql.Rows obj returned from database/sql db.Query obj into a JSON obj
 func rowsToJSON(rows *sql.Rows) []byte {
 	columnTypes, err := rows.ColumnTypes()
 	checkErr(err)

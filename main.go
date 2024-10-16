@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	openai "github.com/sashabaranov/go-openai"
 
 	// for registering postgres as a driver for the sql connection
 	_ "github.com/lib/pq"
@@ -86,8 +88,8 @@ func main() {
 
 	interaction := -1
 
-	for interaction != 0 && interaction != 1 {
-		fmt.Print("Choose: \n(0 / Default) localhost:8080 endpoints\n(1) CLI interaction\n")
+	for interaction == -1 {
+		fmt.Print("Choose: \n(0 / Default) localhost:8080 endpoints\n(1) CLI interaction\n(2) OpenAI testing\n")
 
 		var input int
 		_, err = fmt.Scan(&input)
@@ -119,7 +121,7 @@ func main() {
 		router.PUT("/updatePaste/:pasteid", funcNameMiddleware("updatePaste"), ginExecuteSQL)
 
 		router.Run("localhost:8080")
-	} else {
+	} else if interaction == 1 {
 		for true {
 			var val int
 			fmt.Print(`
@@ -209,8 +211,35 @@ func main() {
 				fmt.Println(string(json))
 			}
 		}
+	} else {
+		// OpenAI testing
+		openAISecretKey := os.Getenv("OPENAI_SECRET_KEY")
+		openAI(openAISecretKey)
 	}
 
+}
+
+func openAI(openAISecretKey string) {
+	client := openai.NewClient(openAISecretKey)
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "Hello!",
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		fmt.Printf("ChatCompletion error: %v\n", err)
+		return
+	}
+
+	fmt.Println(resp.Choices[0].Message.Content)
 }
 
 // generic error handler for when program shouldn't continue

@@ -11,7 +11,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	openai "github.com/sashabaranov/go-openai"
@@ -108,11 +110,22 @@ func main() {
 		router := gin.Default()
 		router.Use(dbMiddleware(db))
 
+		router.Use(cors.New(cors.Config{
+			AllowOrigins:     []string{"http://localhost:5173"},        // Svelte URL
+			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"}, // Adjust allowed methods
+			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+			MaxAge:           12 * time.Hour,
+		}))
+
 		// following u/mcvoid1's URL vs Query vs JSON Parameters advice
 		// https://www.reddit.com/r/golang/comments/10huint/comment/j5b2tqv/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
 		router.GET("/selectUsers", funcNameMiddleware("selectUsers"), ginExecuteSQL)
 		router.GET("/selectPastes", funcNameMiddleware("selectPastes"), ginExecuteSQL)
 		router.GET("/readPaste/:pasteid", funcNameMiddleware("readPaste"), ginExecuteSQL)
+		router.GET("/getPasteCount", funcNameMiddleware("getPasteCount"), ginExecuteSQL)
+		router.GET("/getUserCount", funcNameMiddleware("getUserCount"), ginExecuteSQL)
 
 		router.POST("/createUser", funcNameMiddleware("createUser"), ginExecuteSQL)
 		router.POST("/createPaste", funcNameMiddleware("createPaste"), ginExecuteSQL)
@@ -132,6 +145,8 @@ func main() {
 (5) Read a paste
 (6) Delete a paste
 (7) Update a paste
+(8) Get total paste count
+(9) Get total user count
 `)
 			fmt.Scan(&val)
 
@@ -206,6 +221,16 @@ func main() {
 				fmt.Println("updatePaste> Your content was: ", content)
 
 				rows, err := updatePaste(db, pasteid, content)
+				checkErr(err)
+				json := rowsToJSON(rows)
+				fmt.Println(string(json))
+			case 8:
+				rows, err := getPasteCount(db)
+				checkErr(err)
+				json := rowsToJSON(rows)
+				fmt.Println(string(json))
+			case 9:
+				rows, err := getUserCount(db)
 				checkErr(err)
 				json := rowsToJSON(rows)
 				fmt.Println(string(json))
@@ -348,6 +373,10 @@ func ginExecuteSQL(c *gin.Context) {
 		}
 
 		_, err = updatePaste(dbConn, pasteid, requestBody.Content)
+	case "getPasteCount":
+		rows, err = getPasteCount(dbConn)
+	case "getUserCount":
+		rows, err = getUserCount(dbConn)
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Received a nonexistent funcName for executing SQL"})
 		return
@@ -434,6 +463,24 @@ func updatePaste(db *sql.DB, pasteid int, newContent string) (*sql.Rows, error) 
 		SET content=$1
 		WHERE id=$2
 	`, newContent, pasteid)
+
+	return rows, err
+}
+
+// counts all of the pastes in the pastes table
+func getPasteCount(db *sql.DB) (*sql.Rows, error) {
+	rows, err := db.Query(`
+		SELECT COUNT(*) FROM pastes;
+	`)
+
+	return rows, err
+}
+
+// counts all of the users in the users table
+func getUserCount(db *sql.DB) (*sql.Rows, error) {
+	rows, err := db.Query(`
+		SELECT COUNT(*) FROM users;
+	`)
 
 	return rows, err
 }

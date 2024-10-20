@@ -7,7 +7,10 @@ require (
 	github.com/lib/pq v1.10.9
 )
 
-require github.com/sashabaranov/go-openai v1.32.2 // indirect
+require (
+	github.com/gin-contrib/cors v1.7.2 // indirect
+	github.com/sashabaranov/go-openai v1.32.2 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
